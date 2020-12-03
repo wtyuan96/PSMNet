@@ -84,6 +84,12 @@ def main():
         imgL_o = Image.open(args.leftimg).convert('RGB')
         imgR_o = Image.open(args.rightimg).convert('RGB')
 
+        # @ywt adjust the size of SCARED rectified images
+        min_width = min(imgL_o.size[0], imgR_o.size[0])
+        min_height = min(imgL_o.size[1], imgR_o.size[1])
+        imgL_o = imgL_o.resize((min_width, min_height))
+        imgR_o = imgR_o.resize((min_width, min_height))
+
         imgL = infer_transform(imgL_o)
         imgR = infer_transform(imgR_o) 
        

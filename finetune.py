@@ -55,11 +55,11 @@ all_left_img, all_right_img, all_left_disp, test_left_img, test_right_img, test_
 
 TrainImgLoader = torch.utils.data.DataLoader(
          DA.myImageFloder(all_left_img,all_right_img,all_left_disp, True), 
-         batch_size= 12, shuffle= True, num_workers= 8, drop_last=False)
+         batch_size= 4, shuffle= True, num_workers= 8, drop_last=False)
 
 TestImgLoader = torch.utils.data.DataLoader(
          DA.myImageFloder(test_left_img,test_right_img,test_left_disp, False), 
-         batch_size= 8, shuffle= False, num_workers= 4, drop_last=False)
+         batch_size= 4, shuffle= False, num_workers= 4, drop_last=False)
 
 if args.model == 'stackhourglass':
     model = stackhourglass(args.maxdisp)
@@ -104,27 +104,28 @@ def train(imgL,imgR,disp_L):
             loss = 0.5*F.smooth_l1_loss(output1[mask], disp_true[mask], size_average=True) + 0.7*F.smooth_l1_loss(output2[mask], disp_true[mask], size_average=True) + F.smooth_l1_loss(output3[mask], disp_true[mask], size_average=True) 
         elif args.model == 'basic':
             output = model(imgL,imgR)
-            output = torch.squeeze(output3,1)
-            loss = F.smooth_l1_loss(output3[mask], disp_true[mask], size_average=True)
+            output = torch.squeeze(output, 1)
+            loss = F.smooth_l1_loss(output[mask], disp_true[mask], size_average=True)
 
         loss.backward()
         optimizer.step()
 
-        return loss.data[0]
+        return loss.item()
 
-def test(imgL,imgR,disp_true):
+
+def test(imgL, imgR, disp_true):
         model.eval()
-        imgL   = Variable(torch.FloatTensor(imgL))
-        imgR   = Variable(torch.FloatTensor(imgR))   
+        imgL = Variable(torch.FloatTensor(imgL))
+        imgR = Variable(torch.FloatTensor(imgR))
         if args.cuda:
             imgL, imgR = imgL.cuda(), imgR.cuda()
 
         with torch.no_grad():
-            output3 = model(imgL,imgR)
+            output3 = model(imgL, imgR)
 
         pred_disp = output3.data.cpu()
 
-        #computing 3-px error#
+        # computing 3-px error#
         true_disp = disp_true
         index = np.argwhere(true_disp>0)
         disp_true[index[0][:], index[1][:], index[2][:]] = np.abs(true_disp[index[0][:], index[1][:], index[2][:]]-pred_disp[index[0][:], index[1][:], index[2][:]])
@@ -132,6 +133,7 @@ def test(imgL,imgR,disp_true):
         torch.cuda.empty_cache()
 
         return 1-(float(torch.sum(correct))/float(len(index[0])))
+
 
 def adjust_learning_rate(optimizer, epoch):
     if epoch <= 200:
@@ -144,51 +146,50 @@ def adjust_learning_rate(optimizer, epoch):
 
 
 def main():
-	max_acc=0
-	max_epo=0
-	start_full_time = time.time()
+    max_acc = 0
+    max_epo = 0
+    start_full_time = time.time()
 
-	for epoch in range(1, args.epochs+1):
-	   total_train_loss = 0
-	   total_test_loss = 0
-	   adjust_learning_rate(optimizer,epoch)
+    for epoch in range(1, args.epochs+1):
+        total_train_loss = 0
+        total_test_loss = 0
+        adjust_learning_rate(optimizer,epoch)
            
-               ## training ##
-           for batch_idx, (imgL_crop, imgR_crop, disp_crop_L) in enumerate(TrainImgLoader):
-               start_time = time.time() 
+            ## training ##
+        for batch_idx, (imgL_crop, imgR_crop, disp_crop_L) in enumerate(TrainImgLoader):
+            start_time = time.time()
 
-               loss = train(imgL_crop,imgR_crop, disp_crop_L)
-	       print('Iter %d training loss = %.3f , time = %.2f' %(batch_idx, loss, time.time() - start_time))
-	       total_train_loss += loss
-	   print('epoch %d total training loss = %.3f' %(epoch, total_train_loss/len(TrainImgLoader)))
-	   
-               ## Test ##
+            loss = train(imgL_crop,imgR_crop, disp_crop_L)
+            print('Iter %d training loss = %.3f , time = %.2f' %(batch_idx, loss, time.time() - start_time))
+            total_train_loss += loss
+        print('epoch %d total training loss = %.3f' %(epoch, total_train_loss/len(TrainImgLoader)))
 
-           for batch_idx, (imgL, imgR, disp_L) in enumerate(TestImgLoader):
-               test_loss = test(imgL,imgR, disp_L)
-               print('Iter %d 3-px error in val = %.3f' %(batch_idx, test_loss*100))
-               total_test_loss += test_loss
+            ## Test ##
 
+        for batch_idx, (imgL, imgR, disp_L) in enumerate(TestImgLoader):
+            test_loss = test(imgL,imgR, disp_L)
+            print('Iter %d 3-px error in val = %.3f' %(batch_idx, test_loss*100))
+            total_test_loss += test_loss
 
-	   print('epoch %d total 3-px error in val = %.3f' %(epoch, total_test_loss/len(TestImgLoader)*100))
-	   if total_test_loss/len(TestImgLoader)*100 > max_acc:
-		max_acc = total_test_loss/len(TestImgLoader)*100
-		max_epo = epoch
-	   print('MAX epoch %d total test error = %.3f' %(max_epo, max_acc))
+        print('epoch %d total 3-px error in val = %.3f' %(epoch, total_test_loss/len(TestImgLoader)*100))
+        if total_test_loss/len(TestImgLoader)*100 > max_acc:
+            max_acc = total_test_loss/len(TestImgLoader)*100
+            max_epo = epoch
+        print('MAX epoch %d total test error = %.3f' %(max_epo, max_acc))
 
-	   #SAVE
-	   savefilename = args.savemodel+'finetune_'+str(epoch)+'.tar'
-	   torch.save({
-		    'epoch': epoch,
-		    'state_dict': model.state_dict(),
-		    'train_loss': total_train_loss/len(TrainImgLoader),
-		    'test_loss': total_test_loss/len(TestImgLoader)*100,
-		}, savefilename)
-	
+        # SAVE
+        savefilename = args.savemodel+'finetune_'+str(epoch)+'.tar'
+        torch.save({
+                    'epoch': epoch,
+                    'state_dict': model.state_dict(),
+                    'train_loss': total_train_loss/len(TrainImgLoader),
+                    'test_loss': total_test_loss/len(TestImgLoader)*100,
+                }, savefilename)
+
         print('full finetune time = %.2f HR' %((time.time() - start_full_time)/3600))
-	print(max_epo)
-	print(max_acc)
+        print(max_epo)
+        print(max_acc)
 
 
 if __name__ == '__main__':
-   main()
+    main()

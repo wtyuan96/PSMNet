@@ -95,7 +95,7 @@ class feature_extraction(nn.Module):
                                      convbn(128, 32, 1, 1, 0, 1),
                                      nn.ReLU(inplace=True))
 
-        self.lastconv = nn.Sequential(convbn(320, 128, 3, 1, 1, 1),
+        self.lastconv = nn.Sequential(convbn(320, 128, 3, 1, 1, 1),  # @ywt 320=32+32+32+32+128+64
                                       nn.ReLU(inplace=True),
                                       nn.Conv2d(128, 32, kernel_size=1, padding=0, stride = 1, bias=False))
 
@@ -118,22 +118,22 @@ class feature_extraction(nn.Module):
     def forward(self, x):
         output      = self.firstconv(x)
         output      = self.layer1(output)
-        output_raw  = self.layer2(output)
+        output_raw  = self.layer2(output)  # @ywt conv2_16 into the SPP module
         output      = self.layer3(output_raw)
         output_skip = self.layer4(output)
 
 
         output_branch1 = self.branch1(output_skip)
-        output_branch1 = F.upsample(output_branch1, (output_skip.size()[2],output_skip.size()[3]),mode='bilinear')
+        output_branch1 = F.interpolate(output_branch1, (output_skip.size()[2],output_skip.size()[3]),mode='bilinear', align_corners=True)
 
         output_branch2 = self.branch2(output_skip)
-        output_branch2 = F.upsample(output_branch2, (output_skip.size()[2],output_skip.size()[3]),mode='bilinear')
+        output_branch2 = F.interpolate(output_branch2, (output_skip.size()[2],output_skip.size()[3]),mode='bilinear', align_corners=True)
 
         output_branch3 = self.branch3(output_skip)
-        output_branch3 = F.upsample(output_branch3, (output_skip.size()[2],output_skip.size()[3]),mode='bilinear')
+        output_branch3 = F.interpolate(output_branch3, (output_skip.size()[2],output_skip.size()[3]),mode='bilinear', align_corners=True)
 
         output_branch4 = self.branch4(output_skip)
-        output_branch4 = F.upsample(output_branch4, (output_skip.size()[2],output_skip.size()[3]),mode='bilinear')
+        output_branch4 = F.interpolate(output_branch4, (output_skip.size()[2],output_skip.size()[3]),mode='bilinear', align_corners=True)
 
         output_feature = torch.cat((output_raw, output_skip, output_branch4, output_branch3, output_branch2, output_branch1), 1)
         output_feature = self.lastconv(output_feature)
