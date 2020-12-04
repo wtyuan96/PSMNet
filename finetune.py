@@ -47,15 +47,18 @@ if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
 if args.datatype == '2015':
-   from dataloader import KITTIloader2015 as ls
+    from dataloader import KITTIloader2015 as ls
 elif args.datatype == '2012':
-   from dataloader import KITTIloader2012 as ls
+    from dataloader import KITTIloader2012 as ls
+elif args.datatype == 'SCARED':
+    from dataloader import SCAREDloader as ls
+
 
 all_left_img, all_right_img, all_left_disp, test_left_img, test_right_img, test_left_disp = ls.dataloader(args.datapath)
 
 TrainImgLoader = torch.utils.data.DataLoader(
          DA.myImageFloder(all_left_img,all_right_img,all_left_disp, True), 
-         batch_size= 4, shuffle= True, num_workers= 8, drop_last=False)
+         batch_size= 6, shuffle= True, num_workers= 8, drop_last=False)
 
 TestImgLoader = torch.utils.data.DataLoader(
          DA.myImageFloder(test_left_img,test_right_img,test_left_disp, False), 
