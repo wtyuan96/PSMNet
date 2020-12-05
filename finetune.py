@@ -57,12 +57,12 @@ elif args.datatype == 'SCARED':
 all_left_img, all_right_img, all_left_disp, test_left_img, test_right_img, test_left_disp = ls.dataloader(args.datapath)
 
 TrainImgLoader = torch.utils.data.DataLoader(
-         DA.myImageFloder(all_left_img,all_right_img,all_left_disp, True), 
-         batch_size= 6, shuffle= True, num_workers= 8, drop_last=False)
+         DA.myImageFloder(all_left_img, all_right_img, all_left_disp, True),
+         batch_size=6, shuffle=True, num_workers=8, drop_last=False)
 
 TestImgLoader = torch.utils.data.DataLoader(
-         DA.myImageFloder(test_left_img,test_right_img,test_left_disp, False), 
-         batch_size= 4, shuffle= False, num_workers= 4, drop_last=False)
+         DA.myImageFloder(test_left_img, test_right_img, test_left_disp, False),
+         batch_size=2, shuffle=False, num_workers=4, drop_last=False)
 
 if args.model == 'stackhourglass':
     model = stackhourglass(args.maxdisp)
@@ -139,10 +139,13 @@ def test(imgL, imgR, disp_true):
 
 
 def adjust_learning_rate(optimizer, epoch):
-    if epoch <= 200:
-       lr = 0.001
+    # if epoch <= 200:
+    if epoch <= 20:  # @ywt for epochs = 30
+        # lr = 0.001
+        lr = 0.001/2  # @ywt batch_size = 6
     else:
-       lr = 0.0001
+        # lr = 0.0001
+        lr = 0.0001/2  # @ywt batch_size = 6
     print(lr)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
@@ -190,8 +193,8 @@ def main():
                 }, savefilename)
 
         print('full finetune time = %.2f HR' %((time.time() - start_full_time)/3600))
-        print(max_epo)
-        print(max_acc)
+        print('max_epo: %d' % max_epo)
+        print('max_acc: %.6f' % max_acc)
 
 
 if __name__ == '__main__':

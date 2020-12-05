@@ -48,9 +48,9 @@ class myImageFloder(data.Dataset):
 
             # @ywt image size must be multiple of 32 or 16, according to github issues.
             # KITTI image size: [375, 1242], SCARED image size: [1016, 1231/1232]([height, width])
-            # so I set the size to 512, 512
+            # so I set the size to 512, 512, update: due to the GPU memory, I set the size to 256, 512
             # th, tw = 256, 512
-            th, tw = 512, 512
+            th, tw = 256, 512
 
 
             x1 = random.randint(0, w - tw)
