@@ -35,8 +35,9 @@ parser.add_argument('--no-cuda', type=bool, default=False,
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
 args = parser.parse_args()
-
+print(args.no_cuda)
 args.cuda = not args.no_cuda and torch.cuda.is_available()
+print(args.cuda)
 torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
