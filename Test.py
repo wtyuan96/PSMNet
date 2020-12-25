@@ -13,8 +13,6 @@ from models import *
 import cv2
 from PIL import Image
 
-# 2012 data /media/jiaren/ImageNet/data_scene_flow_2012/testing/
-
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 parser = argparse.ArgumentParser(description='PSMNet')
@@ -24,10 +22,6 @@ parser.add_argument('--datapath', default='/media/jiaren/ImageNet/data_scene_flo
                     help='select model')
 parser.add_argument('--loadmodel', default='./trained/pretrained_model_KITTI2015.tar',
                     help='loading model')
-parser.add_argument('--leftimg', default= './VO04_L.png',
-                    help='load model')
-parser.add_argument('--rightimg', default= './VO04_R.png',
-                    help='load model')                                      
 parser.add_argument('--model', default='stackhourglass',
                     help='select model')
 parser.add_argument('--maxdisp', type=int, default=192,
@@ -61,75 +55,79 @@ if args.loadmodel is not None:
 
 print('Number of model parameters: {}'.format(sum([p.data.nelement() for p in model.parameters()])))
 
-def test(imgL,imgR):
-        model.eval()
 
-        if args.cuda:
-           imgL = imgL.cuda()
-           imgR = imgR.cuda()     
+def test(imgL, imgR):
+    model.eval()
 
-        with torch.no_grad():
-            disp = model(imgL,imgR)
+    if args.cuda:
+        imgL = imgL.cuda()
+        imgR = imgR.cuda()
 
-        disp = torch.squeeze(disp)
-        pred_disp = disp.data.cpu().numpy()
+    with torch.no_grad():
+        disp = model(imgL, imgR)
 
-        return pred_disp
+    disp = torch.squeeze(disp)
+    pred_disp = disp.data.cpu().numpy()
+
+    return pred_disp
 
 
 def main():
 
-        normal_mean_var = {'mean': [0.485, 0.456, 0.406],
-                            'std': [0.229, 0.224, 0.225]}
-        infer_transform = transforms.Compose([transforms.ToTensor(),
-                                              transforms.Normalize(**normal_mean_var)])    
+    test_data_path = '/mnt/Private/ywt/datasets/SCARED_PSMNet/testing'
+    test_result_path = '/mnt/Private/ywt/datasets/SCARED_PSMNet/test_result'
 
-        imgL_o = Image.open(args.leftimg).convert('RGB')
-        imgR_o = Image.open(args.rightimg).convert('RGB')
+    left_image_path = '/mnt/Private/ywt/datasets/SCARED_PSMNet/testing/image_2'
+    right_image_path = '/mnt/Private/ywt/datasets/SCARED_PSMNet/testing/image_3'
+    left_image_list = sorted(os.listdir(left_image_path))
+    right_image_list = sorted(os.listdir(right_image_path))
 
-        # 2020.12.24更新，由于rectified的图像没有截取roi，所以不需要调整大小
-        # # @ywt adjust the size of SCARED rectified images
-        # min_width = min(imgL_o.size[0], imgR_o.size[0])
-        # min_height = min(imgL_o.size[1], imgR_o.size[1])
-        # imgL_o = imgL_o.resize((min_width, min_height))
-        # imgR_o = imgR_o.resize((min_width, min_height))
+    normal_mean_var = {'mean': [0.485, 0.456, 0.406],
+                       'std': [0.229, 0.224, 0.225]}
+    infer_transform = transforms.Compose([transforms.ToTensor(),
+                                          transforms.Normalize(**normal_mean_var)])
+
+    for i in range(len(left_image_list)):
+        print(i)
+        left_image_file_path = os.path.join(left_image_path, left_image_list[i])
+        right_image_file_path = os.path.join(right_image_path, right_image_list[i])
+
+        imgL_o = Image.open(left_image_file_path).convert('RGB')
+        imgR_o = Image.open(right_image_file_path).convert('RGB')
 
         imgL = infer_transform(imgL_o)
-        imgR = infer_transform(imgR_o) 
-       
+        imgR = infer_transform(imgR_o)
 
         # pad to width and hight to 16 times
         if imgL.shape[1] % 16 != 0:
-            times = imgL.shape[1]//16       
-            top_pad = (times+1)*16 -imgL.shape[1]
+            times = imgL.shape[1] // 16
+            top_pad = (times + 1) * 16 - imgL.shape[1]
         else:
             top_pad = 0
 
         if imgL.shape[2] % 16 != 0:
-            times = imgL.shape[2]//16                       
-            right_pad = (times+1)*16-imgL.shape[2]
+            times = imgL.shape[2] // 16
+            right_pad = (times + 1) * 16 - imgL.shape[2]
         else:
-            right_pad = 0    
+            right_pad = 0
 
-        imgL = F.pad(imgL,(0,right_pad, top_pad,0)).unsqueeze(0)
-        imgR = F.pad(imgR,(0,right_pad, top_pad,0)).unsqueeze(0)
+        imgL = F.pad(imgL, (0, right_pad, top_pad, 0)).unsqueeze(0)
+        imgR = F.pad(imgR, (0, right_pad, top_pad, 0)).unsqueeze(0)
 
-        start_time = time.time()
-        pred_disp = test(imgL,imgR)
-        print('time = %.2f' %(time.time() - start_time))
+        pred_disp = test(imgL, imgR)
 
-        
-        if top_pad !=0 or right_pad != 0:
-            img = pred_disp[top_pad:,:-right_pad]
+        if top_pad != 0 or right_pad != 0:
+            img = pred_disp[top_pad:, :-right_pad]
         else:
             img = pred_disp
-        
-        img = (img*256).astype('uint16')
+
+        img = (img * 256).astype('uint16')
         img = Image.fromarray(img)
-        img.save('Test_disparity.png')
+        img.save(os.path.join(test_result_path, left_image_list[i] + '.png'))
+
 
 if __name__ == '__main__':
-   main()
+    main()
 
 
 

@@ -21,7 +21,7 @@ from dataloader import KITTILoader as DA
 
 from models import *
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 parser = argparse.ArgumentParser(description='PSMNet')
 parser.add_argument('--maxdisp', type=int ,default=192,
@@ -148,6 +148,7 @@ def adjust_learning_rate(optimizer, epoch):
     else:
         # lr = 0.0001
         lr = 0.0001/4  # @ywt batch_size = 3
+    lr = 0.0001/4 # TODO，临时lr，训练完就删除
     print(lr)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
